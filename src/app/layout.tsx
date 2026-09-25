@@ -4,12 +4,11 @@ import "@fontsource/jetbrains-mono/500.css";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
-import { AuthProvider } from "@/components/auth-provider";
 
 export const metadata: Metadata = {
-  title: "After-Hours Broker",
+  title: "Superstonk — Pre-IPO Research",
   description:
-    "An AI agent that invests your paycheck into PreStocks tokenized pre-IPO stocks on Solana — nights, weekends, whenever Wall Street is closed.",
+    "Daily, weekly and monthly runners across PreStocks tokenized pre-IPO stocks, with actionable research for traders and agents.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -22,9 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         />
       </head>
       <body className="min-h-full flex flex-col">
-        <TooltipProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </TooltipProvider>
+        <TooltipProvider>{children}</TooltipProvider>
         <Toaster />
       </body>
     </html>
