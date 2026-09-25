@@ -1,24 +1,35 @@
 import Link from "next/link";
-import { ScanLine } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Bot } from "lucide-react";
+import { MarketBadge } from "@/components/market-badge";
+
+const NAV = [
+  ["Dashboard", "/"],
+  ["Fund", "/fund"],
+  ["Plan", "/plan"],
+  ["Activity", "/activity"],
+  ["Agent", "/agent"],
+] as const;
 
 export function SiteHeader() {
   return (
-    <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-4">
+    <header className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 px-4 py-4">
       <Link href="/" className="flex items-center gap-2 font-bold">
-        <ScanLine className="size-5" style={{ color: "var(--accent)" }} />
-        Pre-IPO X-Ray
+        <Bot className="size-5" style={{ color: "var(--accent)" }} />
+        After-Hours Broker
       </Link>
       <div className="flex items-center gap-3">
-        <Link
-          href="/discount"
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          Discount watch
-        </Link>
-        <Button variant="outline" size="sm">
-          <Link href="/me">View my holdings (read-only)</Link>
-        </Button>
+        <nav className="flex items-center gap-3">
+          {NAV.map(([label, href]) => (
+            <Link
+              key={href}
+              href={href}
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <MarketBadge />
       </div>
     </header>
   );

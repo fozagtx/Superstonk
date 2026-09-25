@@ -1,15 +1,16 @@
-import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
+import postgres, { type Sql } from "postgres";
 
-type Sql = NeonQueryFunction<false, false>;
-
+// postgres.js works with both Neon connection strings and a plain local
+// Postgres for development. Lazily created so builds without DATABASE_URL
+// don't blow up at import time.
 let _sql: Sql | null = null;
 
 function client(): Sql {
-  _sql ??= neon(process.env.DATABASE_URL!);
+  _sql ??= postgres(process.env.DATABASE_URL!, { prepare: false });
   return _sql;
 }
 
-export const sql: Sql = ((
-  strings: TemplateStringsArray,
-  ...values: unknown[]
-) => client()(strings, ...values)) as Sql;
+// Wrap in the same tagged-template signature postgres exposes; `values` are
+// ParameterOrFragment<T>[] internally, so bind loosely and cast once.
+export const sql = ((...args: never[]) =>
+  (client() as (...a: never[]) => ReturnType<Sql>)(...args)) as Sql;

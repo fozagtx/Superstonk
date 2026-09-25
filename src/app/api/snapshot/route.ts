@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { sql } from "@/lib/db";
-import { upsertTokenCache, type TokenMetrics } from "@/lib/prestocks";
+import { upsertTokenCache } from "@/lib/prestocks";
 import { premiumPct } from "@/lib/metrics";
-import { evaluateAlerts } from "@/lib/alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -43,13 +42,6 @@ export async function GET(req: NextRequest) {
       ),
     );
     await upsertTokenCache(raw);
-    const metrics = parsed.map((t) => ({
-      symbol: t.symbol,
-      premiumPct: premiumPct(t.tokenPrice, t.markPrice),
-      tokenPrice: t.tokenPrice,
-      markPrice: t.markPrice,
-    })) as TokenMetrics[];
-    await evaluateAlerts(metrics);
 
     return NextResponse.json({
       inserted: parsed.length,
