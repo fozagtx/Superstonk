@@ -1,69 +1,87 @@
-import Image from "next/image";
+import Link from "next/link";
+import { fetchPreStocks } from "@/lib/prestocks";
+import { fmtPct, fmtUsd } from "@/lib/format";
+import { SiteHeader } from "@/components/site-header";
+import { VerdictChip } from "@/components/verdict-chip";
+import { UpdatedAgo } from "@/components/updated-ago";
+import { StaleBanner } from "@/components/stale-banner";
 
-export default function Home() {
+export const revalidate = 300;
+
+export default async function LeaderboardPage() {
+  const { tokens, updatedAt, source } = await fetchPreStocks();
+  const sorted = [...tokens].sort((a, b) => b.premiumPct - a.premiumPct);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <>
+      <SiteHeader />
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-10">
+        <p className="mb-6 text-sm text-muted-foreground">
+          Fair value = the company&apos;s latest valuation. Premium = how much
+          more the token costs.
+        </p>
+        {source === "snapshot" && (
+          <div className="mb-4">
+            <StaleBanner />
+          </div>
+        )}
+        <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+          {sorted.map((t) => (
+            <li key={t.symbol}>
+              <Link
+                href={`/token/${t.symbol}`}
+                className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/60"
+              >
+                {t.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={t.image}
+                    alt=""
+                    className="size-9 shrink-0 rounded-full border border-border object-cover"
+                  />
+                ) : (
+                  <span className="size-9 shrink-0 rounded-full border border-border bg-muted" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{t.name}</div>
+                  <div className="num text-xs text-muted-foreground">
+                    {t.symbol}
+                  </div>
+                </div>
+                <VerdictChip
+                  verdict={t.verdict}
+                  iconOnlyOnMobile
+                  className="shrink-0 max-sm:px-1.5"
+                />
+                <div className="w-20 text-right">
+                  <div
+                    className="num text-sm font-medium"
+                    style={{
+                      color:
+                        t.premiumPct > 5
+                          ? "var(--overpriced)"
+                          : t.premiumPct < -5
+                            ? "var(--discount)"
+                            : "var(--text)",
+                    }}
+                  >
+                    {fmtPct(t.premiumPct)}
+                  </div>
+                  <div className="num text-xs text-muted-foreground">
+                    {fmtUsd(t.marketSize)}
+                  </div>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </main>
-    </div>
+      <footer className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 pb-6 text-xs text-muted-foreground">
+        <span>
+          PreStocks · <UpdatedAgo iso={updatedAt} />
+        </span>
+        <span>Data, not financial advice.</span>
+      </footer>
+    </>
   );
 }
