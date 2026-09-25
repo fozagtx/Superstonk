@@ -191,9 +191,15 @@ export function score(i: AnalysisInput): number {
 }
 
 export function summarize(i: AnalysisInput, signals: Signal[]): string {
+  const trend = (label: string, n: number) =>
+    `${n >= 0 ? "up" : "down"} ${magnitude(n)} over ${label}`;
   const lead =
     signals.find((signal) => signal.kind === "momentum")?.text ??
-    `${i.symbol} is still building a price history for momentum analysis.`;
+    (i.change7d != null
+      ? `${i.symbol} is ${trend("7d", i.change7d)}${
+          i.change30d != null ? ` and ${trend("30d", i.change30d)}` : ""
+        } on DEX — no strong momentum either way`
+      : `${i.symbol} is still building a price history for momentum analysis.`);
   const valuation =
     i.verdict === "discount"
       ? `The PreStocks quote is ${Math.abs(i.premiumPct).toFixed(1)}% below its mark price.`
