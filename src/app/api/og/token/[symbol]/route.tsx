@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { fetchPreStocks } from "@/lib/prestocks";
 import { fmtUsd } from "@/lib/format";
-import { OG_COLORS, imageToDataUrl, loadMonoFont, verdictColor } from "@/lib/og";
+import { OG_COLORS, imageToDataUrl, loadOgFonts, verdictColor } from "@/lib/og";
 
 export const runtime = "nodejs";
 
@@ -10,10 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ symbol: string }> },
 ) {
   const { symbol } = await params;
-  const mono = await loadMonoFont();
-  const fonts = mono
-    ? [{ name: "JetBrains Mono", data: mono, weight: 400 as const }]
-    : [];
+  const fonts = await loadOgFonts();
 
   let token;
   try {
@@ -47,7 +44,7 @@ export async function GET(
         backgroundColor: OG_COLORS.bg,
         color: OG_COLORS.text,
         padding: 56,
-        fontFamily: "sans-serif",
+        fontFamily: "Inter",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 20 }}>

@@ -1,3 +1,15 @@
-import { neon } from "@neondatabase/serverless";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
-export const sql = neon(process.env.DATABASE_URL!);
+type Sql = NeonQueryFunction<false, false>;
+
+let _sql: Sql | null = null;
+
+function client(): Sql {
+  _sql ??= neon(process.env.DATABASE_URL!);
+  return _sql;
+}
+
+export const sql: Sql = ((
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => client()(strings, ...values)) as Sql;

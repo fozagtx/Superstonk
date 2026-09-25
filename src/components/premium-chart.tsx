@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -60,6 +60,7 @@ export function PremiumChart({
   verdict: Verdict;
 }) {
   const [range, setRange] = useState("7d");
+  const tried24hFallback = useRef(false);
   const [result, setResult] = useState<{ range: string; points: Point[] }>({
     range: "",
     points: [],
@@ -72,8 +73,19 @@ export function PremiumChart({
     fetch(`/api/history/${symbol}?range=${range}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((data: Point[]) => {
-        if (!cancelled) {
-          setResult({ range, points: Array.isArray(data) ? data : [] });
+        if (cancelled) return;
+        const pts = Array.isArray(data) ? data : [];
+        setResult({ range, points: pts });
+        // With sparse history, 7d bucketing can collapse to a single point
+        // while 24h has real data — prefer the richer view.
+        if (range === "7d" && pts.length < 2 && !tried24hFallback.current) {
+          tried24hFallback.current = true;
+          fetch(`/api/history/${symbol}?range=24h`)
+            .then((r) => (r.ok ? r.json() : []))
+            .then((d: Point[]) => {
+              if (Array.isArray(d) && d.length >= 2) setRange("24h");
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {
@@ -96,6 +108,9 @@ export function PremiumChart({
       markPrice: 0,
     });
   }
+  const pcts = data.map((d) => d.premiumPct);
+  const yMin = Math.min(-10, Math.floor(Math.min(...pcts)) - 3);
+  const yMax = Math.max(10, Math.ceil(Math.max(...pcts)) + 3);
 
   return (
     <div>
@@ -129,7 +144,8 @@ export function PremiumChart({
             axisLine={false}
             width={56}
             tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-            domain={["auto", "auto"]}
+            domain={[yMin, yMax]}
+            tickCount={6}
           />
           <ReferenceArea
             y1={-5}

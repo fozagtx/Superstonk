@@ -6,10 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "telegram:setup": "node --env-file=.env.local scripts/telegram-setup.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
+    "@fontsource/inter": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@neondatabase/serverless": "^1.1.0",
     "@number-flow/react": "^0.6.2",

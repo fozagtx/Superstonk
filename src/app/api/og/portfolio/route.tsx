@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { fetchPreStocks } from "@/lib/prestocks";
 import { fmtUsd } from "@/lib/format";
-import { OG_COLORS, imageToDataUrl, loadMonoFont } from "@/lib/og";
+import { OG_COLORS, imageToDataUrl, loadOgFonts } from "@/lib/og";
 
 export const runtime = "nodejs";
 
@@ -32,10 +32,7 @@ export async function GET(req: NextRequest) {
   if (!parsed.success) return new Response("Bad query", { status: 400 });
   const { v: totalValue, f: fairValue, s: symbols } = parsed.data;
 
-  const mono = await loadMonoFont();
-  const fonts = mono
-    ? [{ name: "JetBrains Mono", data: mono, weight: 400 as const }]
-    : [];
+  const fonts = await loadOgFonts();
 
   const hidden = totalValue - fairValue;
   const fairShare = totalValue > 0 ? (fairValue / totalValue) * 100 : 0;
@@ -64,7 +61,7 @@ export async function GET(req: NextRequest) {
         backgroundColor: OG_COLORS.bg,
         color: OG_COLORS.text,
         padding: 56,
-        fontFamily: "sans-serif",
+        fontFamily: "Inter",
       }}
     >
       <div style={{ display: "flex", fontSize: 26, color: OG_COLORS.secondary }}>

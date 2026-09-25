@@ -69,6 +69,18 @@ export default async function LeaderboardPage() {
             </li>
           ))}
         </ul>
+        {(() => {
+          const n = sorted.filter((t) => t.verdict === "discount").length;
+          return n > 0 ? (
+            <Link
+              href="/discount"
+              className="mt-3 inline-block text-sm text-muted-foreground hover:text-foreground"
+            >
+              {n} token{n === 1 ? "" : "s"} trading below fair value → Discount
+              watch
+            </Link>
+          ) : null;
+        })()}
       </main>
       <footer className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 pb-6 text-xs text-muted-foreground">
         <span>

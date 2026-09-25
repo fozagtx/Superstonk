@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { sql } from "@/lib/db";
-import { upsertTokenCache } from "@/lib/prestocks";
+import { upsertTokenCache, type TokenMetrics } from "@/lib/prestocks";
 import { premiumPct } from "@/lib/metrics";
+import { evaluateAlerts } from "@/lib/alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,6 @@ const rawTokenSchema = z.object({
   tokenPrice: z.number(),
   supply: z.number(),
 });
-
-// TODO(phase-3): evaluate active alerts against the fresh snapshot and
-// send Telegram notifications (see alerts + telegram_links tables).
-async function evaluateAlerts(): Promise<void> {}
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -46,7 +43,13 @@ export async function GET(req: NextRequest) {
       ),
     );
     await upsertTokenCache(raw);
-    await evaluateAlerts();
+    const metrics = parsed.map((t) => ({
+      symbol: t.symbol,
+      premiumPct: premiumPct(t.tokenPrice, t.markPrice),
+      tokenPrice: t.tokenPrice,
+      markPrice: t.markPrice,
+    })) as TokenMetrics[];
+    await evaluateAlerts(metrics);
 
     return NextResponse.json({
       inserted: parsed.length,

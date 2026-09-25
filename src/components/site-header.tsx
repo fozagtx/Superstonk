@@ -9,9 +9,17 @@ export function SiteHeader() {
         <ScanLine className="size-5" style={{ color: "var(--accent)" }} />
         Pre-IPO X-Ray
       </Link>
-      <Button variant="outline" size="sm">
-        <Link href="/me">View my holdings (read-only)</Link>
-      </Button>
+      <div className="flex items-center gap-3">
+        <Link
+          href="/discount"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          Discount watch
+        </Link>
+        <Button variant="outline" size="sm">
+          <Link href="/me">View my holdings (read-only)</Link>
+        </Button>
+      </div>
     </header>
   );
 }

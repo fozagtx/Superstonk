@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
-  Bell,
   Check,
   ExternalLink,
   TriangleAlert,
@@ -12,20 +11,17 @@ import {
 import { fetchPreStocks } from "@/lib/prestocks";
 import { fmtPct, fmtUsd } from "@/lib/format";
 import { getTransferFeeBps } from "@/lib/solana";
+import { isConfigured as isTelegramConfigured } from "@/lib/telegram";
 import { SiteHeader } from "@/components/site-header";
 import { VerdictChip } from "@/components/verdict-chip";
 import { PremiumGauge } from "@/components/premium-gauge";
 import { PremiumChart } from "@/components/premium-chart";
 import { SupplyBadge } from "@/components/supply-badge";
+import { AlertDialog } from "@/components/alert-dialog";
 import { ShareTokenDialog } from "@/components/share-token-dialog";
 import { AnimPct } from "@/components/anim-num";
 import { StaleBanner } from "@/components/stale-banner";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -254,17 +250,11 @@ export default async function TokenPage({
         </Card>
 
         <div className="flex flex-wrap gap-2">
-          {/* TODO(phase-3): wire alert creation flow (direction + threshold + Telegram link) */}
-          <Tooltip>
-            <TooltipTrigger
-              render={<span className="inline-flex cursor-not-allowed" />}
-            >
-              <Button variant="outline" disabled>
-                <Bell /> Set alert
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Coming in phase 3</TooltipContent>
-          </Tooltip>
+          <AlertDialog
+            symbol={token.symbol}
+            premiumPct={token.premiumPct}
+            configured={isTelegramConfigured()}
+          />
           <ShareTokenDialog
             symbol={token.symbol}
             premiumPct={token.premiumPct}
