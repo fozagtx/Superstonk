@@ -18,12 +18,11 @@ Built for the Stocklana hackathon (main track plus the PreStocks bounty). Data o
 8. [Database schema](#database-schema)
 9. [Environment variables](#environment-variables)
 10. [Local setup](#local-setup)
-11. [Deploying to Vercel](#deploying-to-vercel)
-12. [Telegram alerts setup](#telegram-alerts-setup)
-13. [Testing and verification](#testing-and-verification)
-14. [Design system](#design-system)
-15. [Demo script](#demo-script)
-16. [Known limitations](#known-limitations)
+11. [Telegram alerts setup](#telegram-alerts-setup)
+12. [Testing and verification](#testing-and-verification)
+13. [Design system](#design-system)
+14. [Demo script](#demo-script)
+15. [Known limitations](#known-limitations)
 
 ## What it shows
 
@@ -97,13 +96,13 @@ Because the mints are Token-2022, wallet holdings are fetched with `getParsedTok
 
 ## Architecture
 
-One Next.js app on Vercel. The server talks to the PreStocks API and the database. The browser talks to Solana for wallet holdings, through a small server proxy so the RPC key never reaches the client.
+One Next.js app. The server talks to the PreStocks API and the database. The browser talks to Solana for wallet holdings, through a small server proxy so the RPC key never reaches the client.
 
 ```
 PreStocks API  -->  fetchPreStocks() (server, 5 min cache)  -->  pages and /api/prestocks
                         |
                         v
-             /api/snapshot (Vercel cron, every 5 min)
+             /api/snapshot (cron, every 5 min)
                         |
                         v
              Neon Postgres: snapshots, token_cache, alerts, telegram_links
@@ -235,12 +234,12 @@ Run these statements against a fresh database to set up your own instance.
 
 ## Environment variables
 
-Copy `.env.example` to `.env.local` and fill it in. On Vercel, add the same variables in the project settings.
+Copy `.env.example` to `.env.local` and fill it in.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | Neon Postgres connection string. Used for snapshots, token cache, alerts, Telegram links. |
-| `CRON_SECRET` | yes | Bearer secret for `GET /api/snapshot`. Vercel cron sends it automatically when this variable is set. |
+| `CRON_SECRET` | yes | Bearer secret for `GET /api/snapshot`. Your cron scheduler must send it. |
 | `NEXT_PUBLIC_APP_URL` | yes | Absolute app URL, for example `https://your-app.vercel.app`. Used in Open Graph metadata, share links, and alert messages. |
 | `HELIUS_API_KEY` | no | If set, `/api/rpc` routes Solana calls through Helius. Otherwise the public mainnet endpoint is used, which may rate-limit. |
 | `NEXT_PUBLIC_SOLANA_RPC_URL` | no | A public RPC URL for the browser to call directly. Leave empty to use the `/api/rpc` proxy. |
@@ -270,18 +269,11 @@ Run that a few times a minute apart. The chart shows "History starts today" unti
 
 Useful addresses for testing `/me` without buying tokens: paste `WV9PJN7XTmTLVwbutCLFxp8TyePee6Xq5mRq6Fti5Wc` (the PreStocks fee authority, which holds several positions).
 
-## Deploying to Vercel
-
-1. Push the repo to GitHub and import it in Vercel.
-2. Add every environment variable from the table above. Set `NEXT_PUBLIC_APP_URL` to the production URL.
-3. Deploy. `vercel.json` registers the cron that hits `/api/snapshot` every 5 minutes. Vercel adds the `Authorization: Bearer $CRON_SECRET` header on its own.
-4. Check the Vercel Cron logs after 5 minutes. You should see `{ "inserted": 8 }`.
-5. If you use Telegram alerts, run the setup script below after the first deploy.
 
 ## Telegram alerts setup
 
 1. Open [@BotFather](https://t.me/BotFather) in Telegram, send `/newbot`, and follow the prompts. Copy the bot token and the bot username.
-2. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, and a random `TELEGRAM_WEBHOOK_SECRET` in `.env.local` and in Vercel.
+2. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, and a random `TELEGRAM_WEBHOOK_SECRET` in `.env.local`.
 3. With `NEXT_PUBLIC_APP_URL` pointing at a public URL (production deploy or a tunnel), run:
 
    ```bash
@@ -354,6 +346,3 @@ Pitch line: everyone wants OpenAI exposure. Nobody tells you that you are paying
 - `markPrice` update cadence is not documented by PreStocks. We describe it as "the company's latest valuation" and nothing more.
 - No investment advice anywhere. Verdicts are labels for a number, not recommendations.
 
-## License
-
-MIT
