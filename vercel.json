@@ -1,6 +1,5 @@
 {
   "crons": [
-    { "path": "/api/snapshot", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/run-buys", "schedule": "*/5 * * * *" }
+    { "path": "/api/snapshot", "schedule": "*/5 * * * *" }
   ]
 }

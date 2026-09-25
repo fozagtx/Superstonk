@@ -1,239 +1,112 @@
-# After-Hours Broker
+# Superstonk — Pre-IPO Research Terminal
 
-An AI agent that invests a worker's paycheck into tokenized pre-IPO stocks on Solana — 24/7, while they are at work or asleep.
+Superstonk is a dark research terminal for **PreStocks tokenized pre-IPO stocks** on Solana. It ranks daily, weekly, and monthly runners, combines canonical PreStocks quotes with public DEX context, and gives each token deterministic signals, a score, and an agent-facing launch kit for a suggested Meteora Dynamic Bonding Curve launch.
 
-**Problem.** US markets are open 9:30am–4pm ET, the same hours 9–5 workers are busy. They invest in leftover minutes, or not at all. Pre-IPO names like SpaceX and OpenAI are out of reach at a normal broker.
-
-**Solution.** Each user gets their own Clawpump agent with its own Solana wallet. It takes USDC in, buys PreStocks tokens on a schedule the user sets, and trades nights and weekends. The agent's own token trades in a Meteora DBC pool quoted in SPACEX, and its trading fees pay the agent's running costs.
-
-Built for the [Stocklana hackathon](https://hackathons.solana.com/hackathons/stocklana) (main track; PreStocks, Meteora DBC, Clawpump and Pyth bounties). Data only, not financial advice.
-
-## Demo mode
-
-Every screen and API route works **without any keys**: the app runs a demo worker with a simulated agent and simulated buys, all clearly tagged `demo` in the UI and database. Set the environment variables below and the same code paths go live — a real Clawpump agent is provisioned on first login and scheduled buys become real `swap_execute` calls.
-
-- No `CLAWPUMP_API_KEY` → demo agent, demo wallet, buys simulated at the live PreStocks price.
-- No `NEXT_PUBLIC_PRIVY_APP_ID` / `PRIVY_APP_ID` + `PRIVY_APP_SECRET` → a single shared demo user, no sign-in wall.
-- No `AGENT_TOKEN_MINT` / `METEORA_POOL_ADDRESS` → the `/agent` page shows the "not launched yet" state.
+This app does not use Privy, wallets, authentication, or Clawpump client calls. The API is informational and suggestion-only: it never launches a token or signs a transaction.
 
 ## Screens
 
-| Route | Screen | What is on it |
+- **Research (`/`)** — runner board and a full token research table.
+- **Token detail (`/token/SPACEX`)** — quote/mark comparison, DEX price divergence, liquidity and flow, OHLCV chart, signals, summary, and launch-kit JSON.
+- **Agents API (`/agents`)** — endpoint cards, copyable curl examples, and the runner-to-launch-kit flow.
+
+## Data sources
+
+- **PreStocks** (`https://prestocks.com/api/prestocks`) supplies the canonical `tokenPrice`, mark price, metadata, supply, and mint.
+- **GeckoTerminal** supplies public Solana DEX price, liquidity, 24h volume, pool flow, and daily OHLCV candles.
+
+PreStocks `tokenPrice` is the canonical quote. DEX price can diverge substantially (for example, SPACEX can show a very different DEX price), so the UI and API expose both `dex.priceUsd` and `dexDivergencePct`. GeckoTerminal failures return null data and do not break the UI. Candle history can be empty while it warms up.
+
+## Agent API v1
+
+All v1 JSON responses include CORS (`Access-Control-Allow-Origin: *`) and `Cache-Control: s-maxage=60, stale-while-revalidate=300`.
+
+| Endpoint | Purpose | Example |
 | --- | --- | --- |
-| `/` | Dashboard | Product pitch, agent card (wallet, balance), plan summary, recent activity. Sign-in CTA when Privy is configured. |
-| `/fund` | Funding | Agent wallet address with QR code, USDC/SOL balances from `get_wallet_summaries`, "I sent it" recorder. |
-| `/plan` | Plan builder | Token picker with live PreStocks prices, premium and verdict; amount, frequency, premium-guard slider. Pause/resume existing plans. |
-| `/activity` | Activity feed | Every buy, skip, funding and withdrawal with price, amount and a one-line plain-language reason. |
-| `/agent` | Agent token | The agent-token pool on Meteora DBC (quoted in SPACEX), trading fees earned, and what they pay for. |
+| `GET /api/v1/research` | Full report, all tokens, runners, source, and market status | `curl https://YOUR_APP/api/v1/research` |
+| `GET /api/v1/runners?window=1d\|7d\|30d` | Ranked runners; default is `7d` | `curl 'https://YOUR_APP/api/v1/runners?window=7d'` |
+| `GET /api/v1/tokens` | Lightweight list without candles | `curl https://YOUR_APP/api/v1/tokens` |
+| `GET /api/v1/tokens/{symbol}` | Full token research including candles | `curl https://YOUR_APP/api/v1/tokens/SPACEX` |
+| `GET /api/v1/tokens/{symbol}/launch-kit` | Suggested metadata, mints, links, and research | `curl https://YOUR_APP/api/v1/tokens/SPACEX/launch-kit` |
+| `GET /api/v1/openapi.json` | OpenAPI 3.1 reference | `curl https://YOUR_APP/api/v1/openapi.json` |
+| `GET /api/v1/skill.md` | Agent-facing usage guide | `curl https://YOUR_APP/api/v1/skill.md` |
+| `GET /llms.txt` | Discovery pointers | `curl https://YOUR_APP/llms.txt` |
 
-Every page carries the market-hours badge: **"Wall St closed — agent still trading"** after hours, "US markets open" during 9:30–16:00 ET weekdays.
+## Runner → launch kit → Meteora DBC
 
-## How it works
+1. Call `/api/v1/runners?window=7d` and pick a runner. Use `/api/v1/tokens/{symbol}` to inspect signals, score, liquidity, flow, and DEX-versus-quote divergence.
+2. Call `/api/v1/tokens/{symbol}/launch-kit`. It returns suggested token metadata, the underlying PreStocks mint, USDC and underlying quote-mint options, research, and useful links.
+3. Review the suggestions and use the Meteora DBC SDK (`buildCurve → createConfig → createPool`). Simulate and verify all parameters before any wallet signs. The kit is not an instruction to launch and Superstonk does not execute the launch.
 
-```
-Privy sign-in ──> broker_users (privyUserId → agentId, agentWallet)
-                     │  first login: Clawpump create_agent + whitelist
-                     ▼
-Plan (symbol, USDC, frequency, premium cap) ──> broker_plans
-                     │
-        /api/cron/run-buys (every 5 min, CRON_SECRET)
-                     │  for each due plan:
-                     │    premium = (tokenPrice − markPrice) / markPrice
-                     │    premium > cap  → log "skipped" + reschedule
-                     │    else           → Clawpump swap_execute USDC→mint
-                     │                     (or simulated buy in demo mode)
-                     ▼
-              broker_activity ──> Activity feed
-```
+## Scoring and signal rules
 
-Three money flows stay strictly separate:
+The composite score starts at 50:
 
-| Flow | Money in | Money out | Rule |
-| --- | --- | --- | --- |
-| User savings | USDC + a little SOL from the user | PreStocks tokens in the user's own agent wallet | Never buys the agent token |
-| Running costs | Agent fee revenue, or team SOL at first | AI credits, swap fees, hosting | Paid from the fee wallet only |
-| Agent token | SPACEX from buyers on the DBC curve | Graduates into a DAMM v2 pool | Fees go to the agent's fee wallet |
+- Add `clamp(change7d, -15, 15)`.
+- Add `clamp(change30d / 2, -10, 10)`.
+- Discount +10; overpriced −10; fair +0.
+- Liquidity below $50,000 −10.
+- Absolute DEX divergence above 10% −10.
+- Net buying flow +5; net selling flow −5.
+- Clamp to 0–100 and round.
 
-## Project structure
+Signals use these exact thresholds:
 
-```
-src/
-  app/
-    page.tsx                Dashboard (landing + agent card, plans, activity preview)
-    fund/page.tsx           Funding screen
-    plan/page.tsx           Plan builder
-    activity/page.tsx       Activity feed
-    agent/page.tsx          Agent token pool + revenue
-    api/
-      market/route.ts       US market open/closed status for the badge
-      agent/route.ts        GET agent + wallet summaries; POST bootstrap (+external wallet)
-      agent/fund/route.ts   Record a funding event
-      plans/route.ts        List/create plans
-      plans/[id]/route.ts   Pause/resume a plan
-      activity/route.ts     Activity feed
-      earnings/route.ts     Clawpump fee earnings + agent-token pool info
-      cron/run-buys/route.ts Scheduler: executes due plans (CRON_SECRET)
-      prestocks/route.ts    PreStocks token list with computed metrics
-      snapshot/route.ts     Price snapshots + token cache refresh (CRON_SECRET)
-  components/
-    auth-provider.tsx       Privy-gated auth; demo user when unconfigured
-    dashboard.tsx, funding-card.tsx, plan-builder.tsx
-    activity-feed.tsx, earnings-panel.tsx, market-badge.tsx
-    verdict-chip.tsx, site-header.tsx, ui/
-  lib/
-    clawpump.ts             Clawpump REST client (create_agent, wallets, swap, dca, limit orders, whitelist, earnings)
-    market-hours.ts (+test) US market hours, NYSE holidays, badge label
-    schedule.ts (+test)     Plan frequencies + next-run computation
-    broker.ts               Users, plans, activity, runDuePlans scheduler
-    auth.ts                 Privy token verification / demo user
-    prestocks.ts            PreStocks API + metrics + snapshot fallback
-    metrics.ts (+test)      premiumPct, marketSize, verdict
-    format.ts, db.ts, utils.ts
-vercel.json                 crons: /api/snapshot + /api/cron/run-buys every 5 min
-```
+- Momentum: `change7d > 10` → bullish strong weekly runner; `< -10` → bearish; otherwise `change1d > 5` → bullish daily runner; `< -5` → bearish.
+- Premium: discount → bullish discount to private-market value; overpriced → caution premium over mark; fair → neutral.
+- Liquidity: below $50,000 → caution thin liquidity; at least $250,000 → neutral deep liquidity.
+- Divergence: absolute DEX divergence above 10% → caution.
+- Volatility: 7d volatility above 8% → caution.
+- Flow: at least 5 total trades and buys greater than 1.5× sells → bullish net buying; sells greater than 1.5× buys → bearish net selling.
 
-## API routes
+## Environment
 
-| Method | Route | Auth | Purpose |
-| --- | --- | --- | --- |
-| GET | `/api/market` | none | `{open, label, checkedAt}` — the badge's data. |
-| GET | `/api/agent` | user | `{user, wallets, walletError, demo}` — broker record + live wallet balances. |
-| POST | `/api/agent` | user | Bootstrap: provision agent, optional `{externalWallet}` whitelisting. |
-| POST | `/api/agent/fund` | user | `{amountUsdc, tx?}` — record a funding event. |
-| GET/POST | `/api/plans` | user | List plans / create `{symbol, amountUsdc, frequency, maxPremiumPct}`. |
-| PATCH | `/api/plans/[id]` | user | `{active}` — pause or resume a plan. |
-| GET | `/api/activity` | user | The user's activity feed. |
-| GET | `/api/earnings` | user | Clawpump fee earnings + agent-token pool info. |
-| GET | `/api/cron/run-buys` | `Bearer $CRON_SECRET` or `?secret=` | Runs all due plans once. |
-| GET | `/api/prestocks` | none | Token list with `premiumPct`, `marketSize`, `verdict`. |
-| GET | `/api/snapshot` | `Bearer $CRON_SECRET` or `?secret=` | Price snapshot rows + token cache refresh. |
+Copy `.env.example` to `.env.local`.
 
-"User" auth is the Privy access token as a Bearer header when Privy is configured; in demo mode every request resolves to the shared demo worker.
-
-## Database schema
-
-Postgres (Neon or any `postgres://` URL), created once by hand (no migration tool).
-
-```sql
-CREATE TABLE broker_users (
-  user_id         text PRIMARY KEY,            -- Privy user id, or "demo-worker"
-  agent_id        text,                        -- Clawpump agent id
-  agent_wallet    text,
-  external_wallet text,                        -- whitelisted Privy wallet
-  demo            boolean NOT NULL DEFAULT false,
-  created_at      timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE broker_plans (
-  id              bigserial PRIMARY KEY,
-  user_id         text NOT NULL REFERENCES broker_users(user_id),
-  symbol          text NOT NULL,
-  amount_usdc     double precision NOT NULL,
-  frequency       text NOT NULL CHECK (frequency IN ('daily','weekly','monthly')),
-  max_premium_pct double precision NOT NULL DEFAULT 10,
-  next_run_at     timestamptz NOT NULL,
-  active          boolean NOT NULL DEFAULT true,
-  created_at      timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX broker_plans_due_idx ON broker_plans (next_run_at) WHERE active;
-
-CREATE TABLE broker_activity (
-  id           bigserial PRIMARY KEY,
-  user_id      text NOT NULL REFERENCES broker_users(user_id),
-  kind         text NOT NULL CHECK (kind IN ('create','fund','buy','skip','withdraw')),
-  symbol       text,
-  amount_usdc  double precision,
-  token_amount double precision,
-  price        double precision,
-  reason       text NOT NULL,
-  tx           text,
-  demo         boolean NOT NULL DEFAULT false,
-  created_at   timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX broker_activity_user_idx ON broker_activity (user_id, created_at DESC);
-
--- Price snapshots + raw payload cache (PreStocks fallback and history)
-CREATE TABLE snapshots (
-  id          bigserial PRIMARY KEY,
-  symbol      text NOT NULL,
-  taken_at    timestamptz NOT NULL DEFAULT now(),
-  token_price double precision NOT NULL,
-  mark_price  double precision NOT NULL,
-  premium_pct double precision NOT NULL,
-  supply      double precision NOT NULL
-);
-CREATE INDEX snapshots_symbol_taken_at_idx ON snapshots (symbol, taken_at DESC);
-
-CREATE TABLE token_cache (
-  symbol     text PRIMARY KEY,
-  payload    jsonb NOT NULL,
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-```
-
-## Environment variables
-
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `DATABASE_URL` | yes | Postgres connection string (Neon works). |
-| `CRON_SECRET` | yes | Bearer secret for `/api/snapshot` and `/api/cron/run-buys`. |
-| `NEXT_PUBLIC_APP_URL` | yes | Absolute app URL. |
-| `CLAWPUMP_API_KEY` | no | `cpk_` key from the Clawpump dashboard. Absent → demo agent and simulated buys. |
-| `CLAWPUMP_API_URL` | no | Override the Clawpump API base (defaults to the production deployment). |
-| `NEXT_PUBLIC_PRIVY_APP_ID` | no | Privy App ID — enables sign-in + embedded Solana wallets. |
-| `PRIVY_APP_ID`, `PRIVY_APP_SECRET` | no | Server-side Privy verification for API calls. |
-| `NEXT_PUBLIC_SOLANA_RPC_URL` | no | RPC for Privy wallet ops; use a paid provider on mainnet. |
-| `AGENT_TOKEN_MINT` | no | Agent token mint — set after the DBC launch so `/agent` shows the pool. |
-| `METEORA_POOL_ADDRESS`, `METEORA_DBC_CONFIG` | no | Pool + config addresses for the agent page links. |
-
-## Key addresses
-
-| What | Address |
-| --- | --- |
-| Meteora DBC program | `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN` |
-| SPACEX PreStocks mint (pool quote token) | `PreANxuXjsy2pvisWWMNB6YaJNzr7681wJJr2rHsfTh` |
-| USDC mint | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
-
-## Launch runbook (mainnet)
-
-One-time setup, mostly from a laptop — the deploy keypair never goes on a server. ~0.04–0.07 SOL total (fund the deploy wallet with 0.1 SOL).
-
-1. Create a deploy keypair and fund it with 0.1 SOL.
-2. Get a `cpk_` key from [Clawpump](https://clawpump.tech/dashboard/api) and a Privy App ID/secret; set the env vars on the host.
-3. Confirm Jupiter routes to each PreStocks mint (`POST /swap/quote` for $1).
-4. Create the project's Clawpump agent via the app's bootstrap (`POST /api/agent` provisions one per user on first login).
-5. Launch the agent token on a Meteora DBC pool quoted in SPACEX
-   (`@meteora-ag/dynamic-bonding-curve-sdk`: `buildCurve` → partner `createConfig` → `createPool`, migration target DAMM v2). Set the fee claimer to the agent's fee wallet. Simulate first to read exact rent.
-   - *Open question for Clawpump:* whether their launch path can emit a custom Meteora quote token, which would satisfy the Clawpump bounty directly — ask in their Discord/Telegram.
-6. Set `AGENT_TOKEN_MINT`, `METEORA_POOL_ADDRESS`, `METEORA_DBC_CONFIG`.
-7. Smoke test: sign in, fund the agent with $1, let one scheduled buy run, withdraw.
-8. Record agent wallet, token mint, DBC config and pool addresses for the submission.
+- `DATABASE_URL` — optional. Used for snapshot fallback and history cron; the live app works without a database when the public PreStocks API is available.
+- `CRON_SECRET` — bearer/query secret for `/api/snapshot`.
+- `NEXT_PUBLIC_APP_URL` — absolute deployed URL used in launch-kit links.
 
 ## Local setup
-
-Requirements: Node 20+, pnpm 10.
 
 ```bash
 pnpm install
 cp .env.example .env.local
-# fill in DATABASE_URL, CRON_SECRET, NEXT_PUBLIC_APP_URL=http://localhost:3000
 pnpm dev
 ```
 
-Without `DATABASE_URL` the demo mode still needs the tables above — the app stores plans/activity in Postgres either way.
+Open <http://localhost:3000>. Public PreStocks and GeckoTerminal APIs are fetched server-side.
 
-## Testing
+## Tests and checks
 
 ```bash
-pnpm vitest run     # unit tests: market hours, plan scheduling, metrics
-pnpm tsc --noEmit   # type check
-pnpm lint           # eslint
-pnpm build          # production build
+pnpm vitest run
+pnpm next typegen && pnpm tsc --noEmit
+pnpm lint
+pnpm build
 ```
 
-## Known limitations
+## Database snapshots
 
-- Buys execute through our own scheduler (`/api/cron/run-buys`) so the premium guard applies per buy; `dca_create`/`limit_order_create` wrappers exist in `src/lib/clawpump.ts` for the P1 limit-order feature but are not wired into the UI yet.
-- US persons may be restricted from PreStocks tokens — check their terms and geo-gate if needed before a real launch.
-- Funding is the QR/address path (send USDC directly); in-app Privy `fundWallet` on-ramp is not wired.
-- The `/api/snapshot` price-history cron is kept from the previous build and feeds the PreStocks fallback; a premium-history chart on the plan picker is a nice-to-have.
+Only the existing `snapshots` and `token_cache` tables are needed for optional history and fallback:
+
+```sql
+CREATE TABLE IF NOT EXISTS snapshots (
+  id BIGSERIAL PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  taken_at TIMESTAMPTZ NOT NULL,
+  token_price NUMERIC NOT NULL,
+  mark_price NUMERIC NOT NULL,
+  premium_pct NUMERIC NOT NULL,
+  supply NUMERIC NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS snapshots_symbol_taken_at_idx
+  ON snapshots (symbol, taken_at DESC);
+
+CREATE TABLE IF NOT EXISTS token_cache (
+  symbol TEXT PRIMARY KEY,
+  payload JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```

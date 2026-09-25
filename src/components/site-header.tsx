@@ -1,21 +1,19 @@
 import Link from "next/link";
-import { Bot } from "lucide-react";
+import { LineChart } from "lucide-react";
 import { MarketBadge } from "@/components/market-badge";
 
 const NAV = [
-  ["Dashboard", "/"],
-  ["Fund", "/fund"],
-  ["Plan", "/plan"],
-  ["Activity", "/activity"],
-  ["Agent", "/agent"],
+  ["Research", "/"],
+  ["Agents API", "/agents"],
 ] as const;
 
 export function SiteHeader() {
   return (
-    <header className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 px-4 py-4">
-      <Link href="/" className="flex items-center gap-2 font-bold">
-        <Bot className="size-5" style={{ color: "var(--accent)" }} />
-        After-Hours Broker
+    <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5">
+      <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
+        <LineChart className="size-5" style={{ color: "var(--accent)" }} />
+        <span>Superstonk</span>
+        <span className="text-xs font-normal text-muted-foreground">pre-IPO research</span>
       </Link>
       <div className="flex items-center gap-3">
         <nav className="flex items-center gap-3">
