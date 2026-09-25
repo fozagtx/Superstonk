@@ -10,9 +10,17 @@ export async function GET(
   const { symbol } = await params;
   try {
     const report = await buildResearch();
-    const token = report.tokens.find((item) => item.symbol.toLowerCase() === symbol.toLowerCase());
+    const token = report.tokens.find(
+      (item) => item.symbol.toLowerCase() === symbol.toLowerCase(),
+    );
     if (!token) {
-      return json({ error: "Unknown symbol", symbols: report.tokens.map((item) => item.symbol) }, { status: 404 });
+      return json(
+        {
+          error: "Unknown symbol",
+          symbols: report.tokens.map((item) => item.symbol),
+        },
+        { status: 404 },
+      );
     }
     return json({ token });
   } catch {

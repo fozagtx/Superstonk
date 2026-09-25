@@ -5,5 +5,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const now = new Date();
-  return NextResponse.json({ ...marketStatus(now), checkedAt: now.toISOString() });
+  return NextResponse.json({
+    ...marketStatus(now),
+    checkedAt: now.toISOString(),
+  });
 }

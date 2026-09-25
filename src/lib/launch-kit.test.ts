@@ -22,7 +22,8 @@ const token: TokenResearch = {
   dexDivergencePct: null,
   score: 51,
   signals: [],
-  summary: "SPACEX is steady. The quote is close to its mark price. Use DEX data as context.",
+  summary:
+    "SPACEX is steady. The quote is close to its mark price. Use DEX data as context.",
 };
 
 describe("buildLaunchKit", () => {

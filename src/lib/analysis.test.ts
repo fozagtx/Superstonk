@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildSignals, changePct, rangePosition, score, summarize, volatilityPct, type AnalysisInput } from "./analysis";
+import {
+  buildSignals,
+  changePct,
+  rangePosition,
+  score,
+  summarize,
+  volatilityPct,
+  type AnalysisInput,
+} from "./analysis";
 import type { Candle } from "./dex";
 
 const candles: Candle[] = [
@@ -38,16 +46,53 @@ describe("analysis", () => {
   it("calculates volatility and range positions", () => {
     expect(volatilityPct(candles, 7)).toBeGreaterThan(0);
     expect(rangePosition(candles, 30)).toBeCloseTo(0.75);
-    expect(rangePosition([{ ...candles[0], c: 8 }, { ...candles[1], c: 8, h: 8, l: 8 }], 30)).toBe(0);
-    expect(rangePosition([{ ...candles[0], h: 10, l: 10, c: 10 }, { ...candles[1], h: 10, l: 10, c: 10 }], 30)).toBeNull();
+    expect(
+      rangePosition(
+        [
+          { ...candles[0], c: 8 },
+          { ...candles[1], c: 8, h: 8, l: 8 },
+        ],
+        30,
+      ),
+    ).toBe(0);
+    expect(
+      rangePosition(
+        [
+          { ...candles[0], h: 10, l: 10, c: 10 },
+          { ...candles[1], h: 10, l: 10, c: 10 },
+        ],
+        30,
+      ),
+    ).toBeNull();
   });
   it("fires signal rules and summarizes", () => {
     const signals = buildSignals(input());
-    expect(signals.map((s) => s.kind)).toEqual(expect.arrayContaining(["momentum", "premium", "liquidity", "divergence", "volatility", "flow"]));
+    expect(signals.map((s) => s.kind)).toEqual(
+      expect.arrayContaining([
+        "momentum",
+        "premium",
+        "liquidity",
+        "divergence",
+        "volatility",
+        "flow",
+      ]),
+    );
     expect(summarize(input(), signals)).toContain("TEST");
   });
   it("clamps scores", () => {
     expect(score(input())).toBeLessThanOrEqual(100);
-    expect(score(input({ change7d: -100, change30d: -100, verdict: "overpriced", liquidityUsd: 1, dexDivergencePct: 100, buys24h: 1, sells24h: 10 }))).toBeGreaterThanOrEqual(0);
+    expect(
+      score(
+        input({
+          change7d: -100,
+          change30d: -100,
+          verdict: "overpriced",
+          liquidityUsd: 1,
+          dexDivergencePct: 100,
+          buys24h: 1,
+          sells24h: 10,
+        }),
+      ),
+    ).toBeGreaterThanOrEqual(0);
   });
 });

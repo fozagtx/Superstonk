@@ -25,7 +25,8 @@ export default async function HomePage() {
           </h1>
           <p className="text-sm leading-6 text-muted-foreground">
             Daily, weekly and monthly runners across PreStocks pre-IPO tokens —
-            actionable data for your next trade, and for agents that launch tokens.
+            actionable data for your next trade, and for agents that launch
+            tokens.
           </p>
         </div>
         <RunnerBoard runners={report.runners} />

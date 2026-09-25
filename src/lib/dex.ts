@@ -82,7 +82,9 @@ const ohlcvSchema = z
       .object({
         attributes: z
           .object({
-            ohlcv_list: z.array(z.array(z.union([z.number(), z.string()]))).optional(),
+            ohlcv_list: z
+              .array(z.array(z.union([z.number(), z.string()])))
+              .optional(),
           })
           .passthrough()
           .optional(),

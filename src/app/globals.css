@@ -62,7 +62,7 @@
   --text: oklch(0.19 0.008 260);
   --text-secondary: oklch(0.47 0.012 260);
   --text-muted: oklch(0.56 0.012 260);
-  --accent: oklch(0.50 0.17 258);
+  --accent: oklch(0.5 0.17 258);
   --discount: oklch(0.51 0.12 155);
   --fair: oklch(0.48 0.015 260);
   --overpriced: oklch(0.53 0.19 27);
@@ -74,7 +74,7 @@
 
 .dark {
   --bg: oklch(0.16 0.004 260);
-  --surface: oklch(0.20 0.005 260);
+  --surface: oklch(0.2 0.005 260);
   --surface-raised: oklch(0.245 0.006 260);
   --border: oklch(0.31 0.008 260);
   --text: oklch(0.96 0.003 260);

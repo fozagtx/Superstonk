@@ -1,6 +1,18 @@
 import "server-only";
 
-import { buildSignals, changePct, summarize, score, volatilityPct, rangePosition, WINDOWS, WINDOW_DAYS, type Signal, type Window, type AnalysisInput } from "./analysis";
+import {
+  buildSignals,
+  changePct,
+  summarize,
+  score,
+  volatilityPct,
+  rangePosition,
+  WINDOWS,
+  WINDOW_DAYS,
+  type Signal,
+  type Window,
+  type AnalysisInput,
+} from "./analysis";
 import { fetchDexStats, type DexStats } from "./dex";
 import { marketStatus } from "./market-hours";
 import { fetchPreStocks } from "./prestocks";
@@ -83,7 +95,10 @@ export async function buildResearch(): Promise<ResearchReport> {
       const dex = await fetchDexStats(token.contract_address);
       const candles = dex?.candles ?? [];
       const change = Object.fromEntries(
-        WINDOWS.map((window) => [window, changePct(candles, WINDOW_DAYS[window])]),
+        WINDOWS.map((window) => [
+          window,
+          changePct(candles, WINDOW_DAYS[window]),
+        ]),
       ) as Record<Window, number | null>;
       const volatility7d = volatilityPct(candles, WINDOW_DAYS["7d"]);
       const rangePos30d = rangePosition(candles, WINDOW_DAYS["30d"]);
@@ -91,7 +106,14 @@ export async function buildResearch(): Promise<ResearchReport> {
         dex?.priceUsd != null && token.tokenPrice !== 0
           ? ((dex.priceUsd - token.tokenPrice) / token.tokenPrice) * 100
           : null;
-      const input = inputFor(token, dex, change, volatility7d, rangePos30d, dexDivergencePct);
+      const input = inputFor(
+        token,
+        dex,
+        change,
+        volatility7d,
+        rangePos30d,
+        dexDivergencePct,
+      );
       const signals = buildSignals(input);
       return {
         symbol: token.symbol,
@@ -123,18 +145,16 @@ export async function buildResearch(): Promise<ResearchReport> {
       tokens
         .filter((token) => token.change[window] != null)
         .sort((a, b) => b.change[window]! - a.change[window]!)
-        .map(
-          (token): Runner => ({
-            symbol: token.symbol,
-            name: token.name,
-            image: token.image,
-            changePct: token.change[window]!,
-            volume24hUsd: token.dex?.volume24hUsd ?? null,
-            premiumPct: token.premiumPct,
-            verdict: token.verdict,
-            score: token.score,
-          }),
-        ),
+        .map((token): Runner => ({
+          symbol: token.symbol,
+          name: token.name,
+          image: token.image,
+          changePct: token.change[window]!,
+          volume24hUsd: token.dex?.volume24hUsd ?? null,
+          premiumPct: token.premiumPct,
+          verdict: token.verdict,
+          score: token.score,
+        })),
     ]),
   ) as Record<Window, Runner[]>;
   return {
@@ -144,9 +164,4 @@ export async function buildResearch(): Promise<ResearchReport> {
     tokens,
     runners,
   };
-}
-
-export async function getTokenResearch(symbol: string): Promise<TokenResearch | null> {
-  const report = await buildResearch();
-  return report.tokens.find((token) => token.symbol.toLowerCase() === symbol.toLowerCase()) ?? null;
 }
