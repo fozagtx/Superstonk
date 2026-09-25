@@ -45,31 +45,25 @@ export default async function LeaderboardPage() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{t.name}</div>
                   <div className="num text-xs text-muted-foreground">
-                    {t.symbol}
+                    {t.symbol} · {fmtUsd(t.marketSize)}
                   </div>
                 </div>
                 <VerdictChip
                   verdict={t.verdict}
-                  iconOnlyOnMobile
-                  className="shrink-0 max-sm:px-1.5"
+                  className="shrink-0 max-sm:px-2 max-sm:text-[11px]"
                 />
-                <div className="w-20 text-right">
-                  <div
-                    className="num text-sm font-medium"
-                    style={{
-                      color:
-                        t.premiumPct > 5
-                          ? "var(--overpriced)"
-                          : t.premiumPct < -5
-                            ? "var(--discount)"
-                            : "var(--text)",
-                    }}
-                  >
-                    {fmtPct(t.premiumPct)}
-                  </div>
-                  <div className="num text-xs text-muted-foreground">
-                    {fmtUsd(t.marketSize)}
-                  </div>
+                <div
+                  className="num w-[4.5rem] shrink-0 text-right text-sm font-medium"
+                  style={{
+                    color:
+                      t.premiumPct > 5
+                        ? "var(--overpriced)"
+                        : t.premiumPct < -5
+                          ? "var(--discount)"
+                          : "var(--text)",
+                  }}
+                >
+                  {fmtPct(t.premiumPct)}
                 </div>
               </Link>
             </li>

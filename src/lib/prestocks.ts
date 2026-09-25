@@ -49,13 +49,38 @@ interface SnapshotRow {
   token_price: number;
   mark_price: number;
   supply: number;
+  payload: Record<string, unknown> | null;
+}
+
+export async function upsertTokenCache(
+  tokens: { symbol: string }[],
+): Promise<void> {
+  try {
+    await Promise.all(
+      tokens.map(
+        (t) => sql`
+          INSERT INTO token_cache (symbol, payload, updated_at)
+          VALUES (${t.symbol}, ${JSON.stringify(t)}, now())
+          ON CONFLICT (symbol)
+          DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()
+        `,
+      ),
+    );
+  } catch (e) {
+    console.error("token_cache upsert failed:", e);
+  }
 }
 
 async function fetchSnapshotFallback(): Promise<PreStocksResult> {
   const rows = (await sql`
-    SELECT DISTINCT ON (symbol) symbol, taken_at, token_price, mark_price, supply
-    FROM snapshots
-    ORDER BY symbol, taken_at DESC
+    SELECT s.symbol, s.taken_at, s.token_price, s.mark_price, s.supply,
+           c.payload
+    FROM (
+      SELECT DISTINCT ON (symbol) symbol, taken_at, token_price, mark_price, supply
+      FROM snapshots
+      ORDER BY symbol, taken_at DESC
+    ) s
+    LEFT JOIN token_cache c ON c.symbol = s.symbol
   `) as SnapshotRow[];
   if (rows.length === 0) {
     throw new Error("PreStocks API unavailable and no snapshots in database");
@@ -63,21 +88,23 @@ async function fetchSnapshotFallback(): Promise<PreStocksResult> {
   const latest = rows.reduce((a, b) =>
     new Date(b.taken_at) > new Date(a.taken_at) ? b : a,
   );
-  const tokens = rows.map((r) =>
-    withMetrics({
-      name: r.symbol,
+  const tokens = rows.map((r) => {
+    const cached = rawTokenSchema.partial().safeParse(r.payload ?? {});
+    const base = cached.success ? cached.data : {};
+    return withMetrics({
+      name: base.name ?? r.symbol,
       symbol: r.symbol,
-      description: "",
-      image: "",
-      external_url: "",
-      contract_address: "",
+      description: base.description ?? "",
+      image: base.image ?? "",
+      external_url: base.external_url ?? "",
+      contract_address: base.contract_address ?? "",
       markPrice: Number(r.mark_price),
-      markValuation: null,
+      markValuation: base.markValuation ?? null,
       tokenPrice: Number(r.token_price),
-      impliedValuation: null,
+      impliedValuation: base.impliedValuation ?? null,
       supply: Number(r.supply),
-    }),
-  );
+    });
+  });
   return {
     tokens,
     updatedAt: new Date(latest.taken_at).toISOString(),
@@ -90,6 +117,7 @@ export async function fetchPreStocks(): Promise<PreStocksResult> {
     const res = await fetch(PRESTOCKS_API, { next: { revalidate: 300 } });
     if (!res.ok) throw new Error(`PreStocks API ${res.status}`);
     const data = z.array(rawTokenSchema).parse(await res.json());
+    await upsertTokenCache(data);
     return {
       tokens: data.map(withMetrics),
       updatedAt: new Date().toISOString(),

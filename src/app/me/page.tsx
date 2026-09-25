@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { PublicKey } from "@solana/web3.js";
-import { Share2, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { AppWalletProvider } from "@/components/wallet-provider";
 import { SiteHeader } from "@/components/site-header";
 import { StaleBanner } from "@/components/stale-banner";
 import { VerdictChip } from "@/components/verdict-chip";
+import { ShareXRayDialog } from "@/components/share-xray-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -278,7 +279,7 @@ function MyXRay() {
                           {fmtTokens(p.amount)} {p.symbol}
                         </span>
                         <span className="flex-1" />
-                        <VerdictChip verdict={p.verdict} iconOnlyOnMobile />
+                        <VerdictChip verdict={p.verdict} />
                         <span
                           className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.04em]"
                           style={{
@@ -328,10 +329,11 @@ function MyXRay() {
                   ))}
                 </ul>
 
-                {/* TODO(phase-2): share card / image generation */}
-                <Button variant="outline" disabled>
-                  <Share2 /> Share my X-Ray
-                </Button>
+                <ShareXRayDialog
+                  totalValue={data.totalValue}
+                  fairValue={data.totalFairValue}
+                  symbols={data.positions.map((p) => p.symbol)}
+                />
               </>
             )}
           </>

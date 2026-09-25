@@ -1,5 +1,11 @@
 import { Connection, PublicKey } from "@solana/web3.js";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import {
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getMint,
+  getTransferFeeConfig,
+} from "@solana/spl-token";
+import { unstable_cache } from "next/cache";
 
 export function publicRpcUrl(): string {
   return process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "/api/rpc";
@@ -44,3 +50,43 @@ export async function getHoldings(
 
   return [...totals.entries()].map(([mint, amount]) => ({ mint, amount }));
 }
+
+async function fetchOnChainSupply(mint: string): Promise<number> {
+  const connection = new Connection(serverRpcUrl(), "confirmed");
+  const res = await connection.getTokenSupply(new PublicKey(mint));
+  return res.value.uiAmount ?? 0;
+}
+
+export const getOnChainSupply = (mint: string) =>
+  unstable_cache(
+    () => fetchOnChainSupply(mint),
+    ["onchain-supply", mint],
+    { revalidate: 300 },
+  )();
+
+async function fetchTransferFeeBps(mint: string): Promise<number | null> {
+  try {
+    const connection = new Connection(serverRpcUrl(), "confirmed");
+    const info = await getMint(
+      connection,
+      new PublicKey(mint),
+      "confirmed",
+      TOKEN_2022_PROGRAM_ID,
+    );
+    const cfg = getTransferFeeConfig(info);
+    if (!cfg) return null;
+    return Number(
+      cfg.newerTransferFee.transferFeeBasisPoints ??
+        cfg.olderTransferFee.transferFeeBasisPoints,
+    );
+  } catch {
+    return null;
+  }
+}
+
+export const getTransferFeeBps = (mint: string) =>
+  unstable_cache(
+    () => fetchTransferFeeBps(mint),
+    ["transfer-fee-bps", mint],
+    { revalidate: 300 },
+  )();

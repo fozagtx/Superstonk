@@ -26,11 +26,9 @@ const config: Record<
 export function VerdictChip({
   verdict,
   className,
-  iconOnlyOnMobile = false,
 }: {
   verdict: Verdict;
   className?: string;
-  iconOnlyOnMobile?: boolean;
 }) {
   const { label, colorVar, iconClass } = config[verdict];
   const Icon = verdict === "fair" ? Circle : Triangle;
@@ -46,9 +44,7 @@ export function VerdictChip({
       }}
     >
       <Icon className={iconClass} aria-hidden />
-      <span className={iconOnlyOnMobile ? "max-sm:hidden" : undefined}>
-        {label}
-      </span>
+      <span>{label}</span>
     </span>
   );
 }

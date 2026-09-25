@@ -1,18 +1,23 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import {
   Bell,
   Check,
   ExternalLink,
-  Share2,
   TriangleAlert,
   X,
 } from "lucide-react";
 import { fetchPreStocks } from "@/lib/prestocks";
-import { fmtUsd } from "@/lib/format";
+import { fmtPct, fmtUsd } from "@/lib/format";
+import { getTransferFeeBps } from "@/lib/solana";
 import { SiteHeader } from "@/components/site-header";
 import { VerdictChip } from "@/components/verdict-chip";
 import { PremiumGauge } from "@/components/premium-gauge";
+import { PremiumChart } from "@/components/premium-chart";
+import { SupplyBadge } from "@/components/supply-badge";
+import { ShareTokenDialog } from "@/components/share-token-dialog";
 import { AnimPct } from "@/components/anim-num";
 import { StaleBanner } from "@/components/stale-banner";
 import { Button } from "@/components/ui/button";
@@ -22,9 +27,33 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const revalidate = 300;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ symbol: string }>;
+}): Promise<Metadata> {
+  const { symbol } = await params;
+  const { tokens } = await fetchPreStocks();
+  const token = tokens.find(
+    (t) => t.symbol.toLowerCase() === symbol.toLowerCase(),
+  );
+  if (!token) return { title: "Pre-IPO X-Ray" };
+  const pct = fmtPct(token.premiumPct);
+  const dir = token.premiumPct >= 0 ? "above" : "below";
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const og = `${base}/api/og/token/${token.symbol}`;
+  return {
+    title: `${token.symbol} · ${pct} ${dir} fair value · Pre-IPO X-Ray`,
+    description: `${token.name} trades ${pct} ${dir} its mark price on PreStocks.`,
+    openGraph: { images: [og] },
+    twitter: { card: "summary_large_image", images: [og] },
+  };
+}
 
 export default async function TokenPage({
   params,
@@ -39,6 +68,12 @@ export default async function TokenPage({
   if (!token) notFound();
 
   const onePctSale = token.marketSize * 0.01;
+  const feeBps = token.contract_address
+    ? await getTransferFeeBps(token.contract_address)
+    : null;
+  const feePct = ((feeBps ?? 300) / 100).toFixed(
+    (feeBps ?? 300) % 100 === 0 ? 0 : 1,
+  );
 
   const ownership: {
     icon: "yes" | "no" | "warn";
@@ -51,7 +86,7 @@ export default async function TokenPage({
     { icon: "warn", text: "Redemption for large holders only" },
     {
       icon: "warn",
-      text: "3% fee on every transfer (Token-2022 transfer fee, set on-chain)",
+      text: `${feePct}% fee on every transfer (Token-2022 transfer fee, read on-chain)`,
     },
     {
       icon: "warn",
@@ -94,6 +129,17 @@ export default async function TokenPage({
           </div>
           <VerdictChip verdict={token.verdict} />
         </div>
+
+        {token.contract_address && (
+          <div className="mb-6">
+            <Suspense fallback={<Skeleton className="h-5 w-44" />}>
+              <SupplyBadge
+                mint={token.contract_address}
+                apiSupply={token.supply}
+              />
+            </Suspense>
+          </div>
+        )}
 
         <Card className="mb-4">
           <CardContent className="pt-6">
@@ -198,8 +244,12 @@ export default async function TokenPage({
           <CardHeader>
             <CardTitle className="text-base">Premium history</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            History starts today — check back as we collect snapshots.
+          <CardContent>
+            <PremiumChart
+              symbol={token.symbol}
+              currentPct={token.premiumPct}
+              verdict={token.verdict}
+            />
           </CardContent>
         </Card>
 
@@ -215,12 +265,13 @@ export default async function TokenPage({
             </TooltipTrigger>
             <TooltipContent>Coming in phase 3</TooltipContent>
           </Tooltip>
-          {/* TODO(phase-2): share card / image generation */}
-          <Button variant="outline" disabled>
-            <Share2 /> Share
-          </Button>
+          <ShareTokenDialog
+            symbol={token.symbol}
+            premiumPct={token.premiumPct}
+          />
           {token.external_url && (
             <Button
+              nativeButton={false}
               render={
                 <a
                   href={token.external_url}
